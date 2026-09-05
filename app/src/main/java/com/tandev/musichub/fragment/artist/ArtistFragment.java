@@ -38,6 +38,7 @@ import com.tandev.musichub.api.service.ApiServiceFactory;
 import com.tandev.musichub.api.type_adapter_Factory.artist.ArtistTypeAdapter;
 import com.tandev.musichub.fragment.album.AlbumFragment;
 import com.tandev.musichub.helper.ui.Helper;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.artist.ArtistDetail;
 import com.tandev.musichub.model.artist.SectionArtist;
 import com.tandev.musichub.model.artist.artist.SectionArtistArtist;
@@ -252,21 +253,17 @@ public class ArtistFragment extends Fragment {
                         public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
                             Log.d(">>>>>>>>>>>>>>>>>>", "getArtist " + call.request().url());
                             if (response.isSuccessful() && response.body() != null) {
-                                try {
-                                    String jsonData = response.body().string();
+                                AsyncResponseParser.parse(response.body(), jsonData -> {
                                     GsonBuilder gsonBuilder = new GsonBuilder();
                                     gsonBuilder.registerTypeAdapter(SectionArtist.class, new ArtistTypeAdapter());
                                     Gson gson = gsonBuilder.create();
-
-                                    ArtistDetail artistDetail = gson.fromJson(jsonData, ArtistDetail.class);
-
-                                    if (artistDetail != null) {
+                                    return gson.fromJson(jsonData, ArtistDetail.class);
+                                }, artistDetail -> {
+                                    if (artistDetail != null && isAdded()) {
                                         artistViewModel.setArtistDetail(artistDetail);
                                     }
+                                }, e -> Log.e("TAG", "Error: " + e.getMessage(), e));
 
-                                } catch (Exception e) {
-                                    Log.e("TAG", "Error: " + e.getMessage(), e);
-                                }
                             }
                         }
 

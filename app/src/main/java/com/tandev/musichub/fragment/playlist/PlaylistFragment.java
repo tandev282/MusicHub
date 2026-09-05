@@ -53,6 +53,7 @@ import com.tandev.musichub.bottomsheet.BottomSheetOptionPlaylist;
 import com.tandev.musichub.fragment.artist.AllArtistFragment;
 import com.tandev.musichub.helper.ui.Helper;
 import com.tandev.musichub.helper.ui.MusicHelper;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.chart.chart_home.Artists;
 import com.tandev.musichub.model.chart.chart_home.Items;
 import com.tandev.musichub.model.playlist.DataPlaylist;
@@ -407,23 +408,18 @@ public class PlaylistFragment extends Fragment {
                         public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
                             String requestUrl = call.request().url().toString();
                             Log.d(">>>>>>>>>>>>>>>>>>>", "getSectionBottom " + requestUrl);
-                            if (response.isSuccessful()) {
-                                try {
-                                    assert response.body() != null;
-                                    String jsonData = response.body().string();
+                            if (response.isSuccessful() && response.body() != null) {
+                                AsyncResponseParser.parse(response.body(), jsonData -> {
                                     GsonBuilder gsonBuilder = new GsonBuilder();
                                     gsonBuilder.registerTypeAdapter(DataSectionBottom.class, new SectionBottomTypeAdapter());
                                     Gson gson = gsonBuilder.create();
-
-                                    SectionBottom sectionBottom = gson.fromJson(jsonData, SectionBottom.class);
-
-                                    if (sectionBottom != null && sectionBottom.getData() != null) {
+                                    return gson.fromJson(jsonData, SectionBottom.class);
+                                }, sectionBottom -> {
+                                    if (sectionBottom != null && sectionBottom.getData() != null && isAdded()) {
                                         playlistViewModel.setSectionBottomMutableLiveData(sectionBottom);
                                     }
+                                }, e -> Log.e("TAG", "Error: " + e.getMessage(), e));
 
-                                } catch (Exception e) {
-                                    Log.e("TAG", "Error: " + e.getMessage(), e);
-                                }
                             } else {
                                 Log.d("TAG", "Failed to retrieve data: " + response.code());
                             }

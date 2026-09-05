@@ -48,6 +48,7 @@ import com.tandev.musichub.api.service.ApiServiceFactory;
 import com.tandev.musichub.api.type_adapter_Factory.section_bottom.SectionBottomTypeAdapter;
 import com.tandev.musichub.helper.ui.Helper;
 import com.tandev.musichub.helper.ui.MusicHelper;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.chart.chart_home.Artists;
 import com.tandev.musichub.model.chart.chart_home.Items;
 import com.tandev.musichub.model.playlist.Playlist;
@@ -330,23 +331,18 @@ public class AlbumFragment extends Fragment {
                         @Override
                         public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                             Log.d(">>>>>>>>>>>>>>>>>>>", "getSectionBottom " + call.request().url());
-                            if (response.isSuccessful()) {
-                                try {
-                                    assert response.body() != null;
-                                    String jsonData = response.body().string();
+                            if (response.isSuccessful() && response.body() != null) {
+                                AsyncResponseParser.parse(response.body(), jsonData -> {
                                     GsonBuilder gsonBuilder = new GsonBuilder();
                                     gsonBuilder.registerTypeAdapter(DataSectionBottom.class, new SectionBottomTypeAdapter());
                                     Gson gson = gsonBuilder.create();
-
-                                    SectionBottom sectionBottom = gson.fromJson(jsonData, SectionBottom.class);
-
-                                    if (sectionBottom != null && sectionBottom.getData() != null) {
+                                    return gson.fromJson(jsonData, SectionBottom.class);
+                                }, sectionBottom -> {
+                                    if (sectionBottom != null && sectionBottom.getData() != null && isAdded()) {
                                         updateUISectionBottom(sectionBottom);
                                     }
+                                }, e -> Log.e("TAG", "Error: " + e.getMessage(), e));
 
-                                } catch (Exception e) {
-                                    Log.e("TAG", "Error: " + e.getMessage(), e);
-                                }
                             }
                         }
 

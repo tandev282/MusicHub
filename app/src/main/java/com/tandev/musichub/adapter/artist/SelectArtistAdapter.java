@@ -22,6 +22,7 @@ import com.tandev.musichub.api.service.ApiServiceFactory;
 import com.tandev.musichub.api.categories.SongCategories;
 import com.tandev.musichub.fragment.artist.ArtistFragment;
 import com.tandev.musichub.helper.ui.Helper;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.chart.chart_home.Artists;
 import com.makeramen.roundedimageview.RoundedImageView;
 
@@ -151,20 +152,14 @@ public class SelectArtistAdapter extends RecyclerView.Adapter<SelectArtistAdapte
                         @Override
                         public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
                             if (response.isSuccessful() && response.body() != null) {
-                                try {
-                                    String responseBody = response.body().string();
+                                AsyncResponseParser.parse(response.body(), responseBody -> {
                                     JSONObject jsonObject = new JSONObject(responseBody);
-
                                     if (jsonObject.getInt("err") == 0) {
                                         JSONObject data = jsonObject.getJSONObject("data");
-                                        int totalFollow = data.getInt("totalFollow");
-                                        activity.runOnUiThread(() -> callback.onFollowersFetched(totalFollow));
-                                    } else {
-                                        activity.runOnUiThread(() -> callback.onError("Error: "));
+                                        return data.getInt("totalFollow");
                                     }
-                                } catch (Exception e) {
-                                    activity.runOnUiThread(() -> callback.onError("Error parsing response: " + e.getMessage()));
-                                }
+                                    throw new Exception("Error: ");
+                                }, callback::onFollowersFetched, e -> callback.onError("Error parsing response: " + e.getMessage()));
                             } else {
                                 activity.runOnUiThread(() -> callback.onError("Response unsuccessful: " + response.message()));
                             }

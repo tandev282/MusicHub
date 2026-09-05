@@ -32,6 +32,7 @@ import com.tandev.musichub.api.categories.HubCategories;
 import com.tandev.musichub.api.service.ApiServiceFactory;
 import com.tandev.musichub.api.type_adapter_Factory.home.HubSectionTypeAdapter;
 import com.tandev.musichub.helper.ui.Helper;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.hub.Hub;
 import com.tandev.musichub.model.hub.HubSection;
 import com.tandev.musichub.model.hub.SectionHubArtist;
@@ -186,23 +187,19 @@ public class HubFragment extends Fragment {
                         public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
                             Log.d(">>>>>>>>>>>>>>>>>>", "getHub " + call.request().url());
                             if (response.isSuccessful() && response.body() != null) {
-                                try {
-                                    String jsonData = response.body().string();
+                                AsyncResponseParser.parse(response.body(), jsonData -> {
                                     GsonBuilder gsonBuilder = new GsonBuilder();
                                     gsonBuilder.registerTypeAdapter(HubSection.class, new HubSectionTypeAdapter());
                                     Gson gson = gsonBuilder.create();
-
-                                    Hub hub = gson.fromJson(jsonData, Hub.class);
-
-                                    if (hub != null && hub.getData() != null) {
+                                    return gson.fromJson(jsonData, Hub.class);
+                                }, hub -> {
+                                    if (hub != null && hub.getData() != null && isAdded()) {
                                         hubViewModel.setHubMutableLiveData(hub);
                                     } else {
                                         Log.d("TAG", "No data found in JSON");
                                     }
+                                }, e -> Log.e("TAG", "Error: " + e.getMessage(), e));
 
-                                } catch (Exception e) {
-                                    Log.e("TAG", "Error: " + e.getMessage(), e);
-                                }
                             } else {
                                 Log.d("TAG", "Response unsuccessful or empty body");
                             }

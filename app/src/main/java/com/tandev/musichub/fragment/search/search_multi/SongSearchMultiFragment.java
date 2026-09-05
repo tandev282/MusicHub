@@ -29,12 +29,12 @@ import com.tandev.musichub.api.categories.SearchCategories;
 import com.tandev.musichub.api.service.ApiServiceFactory;
 import com.tandev.musichub.constants.Constants;
 import com.tandev.musichub.helper.uliti.log.LogUtil;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.chart.chart_home.Items;
 import com.tandev.musichub.model.search.song.SearchSong;
 import com.google.gson.Gson;
 import com.tandev.musichub.view_model.search.SearchMultiSongViewModel;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -176,22 +176,16 @@ public class SongSearchMultiFragment extends Fragment {
                         @Override
                         public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                             LogUtil.d(Constants.TAG, "searchSong: " + call.request().url());
-                            if (response.isSuccessful()) {
-                                try {
-                                    Gson gson = new Gson(); // Initialize Gson parser
-                                    String json = response.body().string();
-                                    SearchSong searchSong = gson.fromJson(json, SearchSong.class);
-
-                                    if (searchSong != null && searchSong.getData().getItems() != null) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                AsyncResponseParser.parse(response.body(), json -> new Gson().fromJson(json, SearchSong.class), searchSong -> {
+                                    if (searchSong != null && searchSong.getData() != null && searchSong.getData().getItems() != null && isAdded()) {
                                         searchMultiSongViewModel.setSearchSongMutableLiveData(searchSong);
                                     } else {
                                         no_data = true;
                                         linear_empty_search.setVisibility(View.VISIBLE);
                                         rv_search_song.setVisibility(View.GONE);
                                     }
-                                } catch (IOException e) {
-                                    Log.e("TAG", "Error reading response: " + e.getMessage(), e);
-                                }
+                                }, e -> Log.e("TAG", "Error reading response: " + e.getMessage(), e));
                             }
                         }
 
@@ -225,18 +219,12 @@ public class SongSearchMultiFragment extends Fragment {
                         @Override
                         public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                             LogUtil.d(Constants.TAG, "searchSongMore: " + call.request().url());
-                            if (response.isSuccessful()) {
-                                try {
-                                    Gson gson = new Gson(); // Initialize Gson parser
-                                    String json = response.body().string();
-                                    SearchSong searchSong = gson.fromJson(json, SearchSong.class);
-
-                                    if (searchSong != null && searchSong.getData() != null) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                AsyncResponseParser.parse(response.body(), json -> new Gson().fromJson(json, SearchSong.class), searchSong -> {
+                                    if (searchSong != null && searchSong.getData() != null && isAdded()) {
                                         updateUIMore(searchSong);
                                     }
-                                } catch (IOException e) {
-                                    Log.e("TAG", "Error reading response: " + e.getMessage(), e);
-                                }
+                                }, e -> Log.e("TAG", "Error reading response: " + e.getMessage(), e));
                             }
                         }
 

@@ -58,6 +58,7 @@ import com.tandev.musichub.api.type_adapter_Factory.search.SearchTypeAdapter;
 import com.tandev.musichub.constants.Constants;
 import com.tandev.musichub.constants.PermissionConstants;
 import com.tandev.musichub.helper.ui.Helper;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.helper.uliti.PermissionUtils;
 import com.tandev.musichub.helper.uliti.log.LogUtil;
 import com.tandev.musichub.model.search.search_featured.SearchFeatured;
@@ -482,22 +483,17 @@ public class SearchFragment extends Fragment implements SearchSuggestionAdapter.
             @Override
             public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
                 LogUtil.d(Constants.TAG, "searchSuggestion: " + call.request().url());
-                if (response.isSuccessful()) {
-                    try {
-                        assert response.body() != null;
-                        String jsonData = response.body().string();
+                if (response.isSuccessful() && response.body() != null) {
+                    AsyncResponseParser.parse(response.body(), jsonData -> {
                         GsonBuilder gsonBuilder = new GsonBuilder();
                         gsonBuilder.registerTypeAdapter(SearchSuggestionsDataItem.class, new SearchTypeAdapter());
                         Gson gson = gsonBuilder.create();
-
-                        SearchSuggestions searchSuggestions = gson.fromJson(jsonData, SearchSuggestions.class);
-                        if (searchSuggestions != null) {
+                        return gson.fromJson(jsonData, SearchSuggestions.class);
+                    }, searchSuggestions -> {
+                        if (searchSuggestions != null && isAdded()) {
                             updateUISearchSuggestion(searchSuggestions, query);
                         }
-
-                    } catch (Exception e) {
-                        Log.e("TAG", "Error: " + e.getMessage(), e);
-                    }
+                    }, e -> Log.e("TAG", "Error: " + e.getMessage(), e));
                 } else {
                     Log.d("TAG", "Failed to retrieve data: " + response.code());
                 }

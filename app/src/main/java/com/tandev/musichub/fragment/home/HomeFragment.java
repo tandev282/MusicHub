@@ -88,6 +88,7 @@ import com.tandev.musichub.model.chart.home.home_new.editor_theme.HomeDataItemPl
 import com.tandev.musichub.model.chart.home.home_new.editor_theme_3.HomeDataItemPlaylistEditorTheme3;
 import com.tandev.musichub.model.chart.home.home_new.editor_theme_4.HomeDataItemPlaylistEditorTheme4;
 import com.tandev.musichub.model.chart.home.home_new.item.HomeDataItem;
+import com.tandev.musichub.model.chart.home.home_new.item.UnsupportedHomeDataItem;
 import com.tandev.musichub.model.chart.home.home_new.new_release.HomeDataItemNewRelease;
 import com.tandev.musichub.model.chart.home.home_new.new_release_chart.HomeDataItemNewReleaseChart;
 import com.tandev.musichub.model.chart.home.home_new.radio.HomeDataItemRadio;
@@ -114,6 +115,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import okhttp3.ResponseBody;
 import retrofit2.Call;
@@ -126,6 +129,7 @@ public class HomeFragment extends Fragment {
 
     private Handler mHandler;
     private static final int INTERVAL = 10000;
+    private final ExecutorService homeParserExecutor = Executors.newSingleThreadExecutor();
     private MusicHelper musicHelper;
     private SharedPreferencesManager sharedPreferencesManager;
 
@@ -190,6 +194,7 @@ public class HomeFragment extends Fragment {
     private ArrayList<DataAlbum> dataAlbumArrayList;
     private AlbumMoreAdapter albumMoreAdapter;
 
+    private LinearLayout linear_radio;
     private TextView txt_title_radio;
     private RecyclerView rv_radio;
     private ArrayList<HomeDataItemRadioItem> homeDataItemRadioItemArrayList;
@@ -330,8 +335,11 @@ public class HomeFragment extends Fragment {
         linear_more_album = view.findViewById(R.id.linear_more_album);
         rv_album = view.findViewById(R.id.rv_album);
 
+        linear_radio = view.findViewById(R.id.linear_radio);
         txt_title_radio = view.findViewById(R.id.txt_title_radio);
         rv_radio = view.findViewById(R.id.rv_radio);
+        linear_radio.setVisibility(View.GONE);
+        rv_radio.setVisibility(View.GONE);
     }
 
     private void initRecyclerView() {
@@ -438,22 +446,11 @@ public class HomeFragment extends Fragment {
                         public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
                             Log.d(">>>>>>>>>>>>>>>>>>", "getHome " + call.request().url());
                             if (response.isSuccessful()) {
-                                try {
-                                    assert response.body() != null;
-                                    String jsonData = response.body().string();
-                                    GsonBuilder gsonBuilder = new GsonBuilder();
-                                    gsonBuilder.registerTypeAdapter(HomeDataItem.class, new HomeDataItemTypeAdapter());
-                                    Gson gson = gsonBuilder.create();
-
-                                    Home home = gson.fromJson(jsonData, Home.class);
-
-                                    if (home != null && home.getData() != null && home.getData().getItems() != null) {
-                                        homeViewModel.setHubHomeMutableLiveData(home);
-                                    }
-
-                                } catch (Exception e) {
-                                    Log.e("TAG", "Error: " + e.getMessage(), e);
+                                ResponseBody responseBody = response.body();
+                                if (responseBody == null) {
+                                    return;
                                 }
+                                homeParserExecutor.execute(() -> parseHomeResponse(responseBody));
                             } else {
                                 Log.d("TAG", "Failed to retrieve data: " + response.code());
                             }
@@ -474,6 +471,27 @@ public class HomeFragment extends Fragment {
                 Log.e("TAG", "Service creation error: " + e.getMessage(), e);
             }
         });
+    }
+
+    private void parseHomeResponse(ResponseBody responseBody) {
+        try {
+            String jsonData = responseBody.string();
+            GsonBuilder gsonBuilder = new GsonBuilder();
+            gsonBuilder.registerTypeAdapter(HomeDataItem.class, new HomeDataItemTypeAdapter());
+            Gson gson = gsonBuilder.create();
+
+            Home home = gson.fromJson(jsonData, Home.class);
+
+            if (home != null && home.getData() != null && home.getData().getItems() != null && isAdded()) {
+                requireActivity().runOnUiThread(() -> {
+                    if (isAdded()) {
+                        homeViewModel.setHubHomeMutableLiveData(home);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e("TAG", "Error: " + e.getMessage(), e);
+        }
     }
 
     private void getHubHome() {
@@ -521,7 +539,6 @@ public class HomeFragment extends Fragment {
         getRTChart(home);
         getWeekChart(home);
         getPlaylist(home);
-        getRadioLive(home);
         relative_loading.setVisibility(View.GONE);
         nested_scroll.setVisibility(View.VISIBLE);
 
@@ -645,6 +662,9 @@ public class HomeFragment extends Fragment {
                     dataAlbumArrayList.addAll(homeDataItemPLaylistAlbum.getItems());
                     albumMoreAdapter.setFilterList(dataAlbumArrayList);
                     linear_more_album.setVisibility(dataAlbumArrayList.size() > 5 ? View.VISIBLE : View.GONE);
+                } else if (item instanceof UnsupportedHomeDataItem) {
+                    UnsupportedHomeDataItem unsupportedItem = (UnsupportedHomeDataItem) item;
+                    Log.d("TAG", "Skipped HomeDataItem sectionType: " + unsupportedItem.getSectionType());
                 } else {
                     Log.d("TAG", "Unknown HomeDataItem type: " + item.getClass().getSimpleName());
                 }
@@ -791,6 +811,10 @@ public class HomeFragment extends Fragment {
     private final Runnable bannerRunnable = () -> view_pager_banner.setCurrentItem(view_pager_banner.getCurrentItem() + 1);
 
     private void getUserActiveRadio(ArrayList<HomeDataItemRadioItem> homeDataItemRadioItemArrayList) {
+        if (homeDataItemRadioItemArrayList == null || homeDataItemRadioItemArrayList.isEmpty()) {
+            return;
+        }
+
         ApiServiceFactory.createServiceAsync(new ApiServiceFactory.ApiServiceCallback() {
             @Override
             public void onServiceCreated(ApiService service) {
@@ -815,7 +839,7 @@ public class HomeFragment extends Fragment {
                             Log.d(">>>>>>>>>>>>>>>>>>", "getUserActiveRadio " + call.request().url());
                             if (response.isSuccessful()) {
                                 UserActiveRadio userActiveRadio = response.body();
-                                if (userActiveRadio != null) {
+                                if (userActiveRadio != null && userActiveRadio.getData() != null) {
                                     for (DataUserActiveRadio dataUserActiveRadio : userActiveRadio.getData()) {
                                         for (HomeDataItemRadioItem homeDataItemRadioItem : homeDataItemRadioItemArrayList) {
                                             if (homeDataItemRadioItem.getEncodeId().equals(dataUserActiveRadio.getEncodeId())) {
@@ -850,7 +874,6 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         bannerHandler.postDelayed(bannerRunnable, 3000);
-        startRepeatingTask();
         LocalBroadcastManager.getInstance(requireContext()).registerReceiver(createBroadcastReceiver(), new IntentFilter("send_data_to_activity"));
     }
 
@@ -865,6 +888,7 @@ public class HomeFragment extends Fragment {
     public void onDestroy() {
         super.onDestroy();
         mHandler.removeCallbacks(mStatusChecker);
+        homeParserExecutor.shutdownNow();
         LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(createBroadcastReceiver());
     }
 }

@@ -27,11 +27,11 @@ import com.tandev.musichub.api.categories.SearchCategories;
 import com.tandev.musichub.api.service.ApiServiceFactory;
 import com.tandev.musichub.constants.Constants;
 import com.tandev.musichub.helper.uliti.log.LogUtil;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.chart.chart_home.Artists;
 import com.tandev.musichub.model.search.artist.SearchArtist;
 import com.google.gson.Gson;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -147,29 +147,21 @@ public class ArtistSearchMultiFragment extends Fragment {
                         @Override
                         public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                             LogUtil.d(Constants.TAG, "searchSong: " + call.request().url());
-                            if (response.isSuccessful()) {
-                                try {
-                                    Gson gson = new Gson(); // Initialize Gson parser
-                                    String json = response.body().string();
-                                    SearchArtist searchArtist = gson.fromJson(json, SearchArtist.class);
-
-                                    if (searchArtist != null && searchArtist.getData() != null) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                AsyncResponseParser.parse(response.body(), json -> new Gson().fromJson(json, SearchArtist.class), searchArtist -> {
+                                    if (searchArtist != null && searchArtist.getData() != null && isAdded()) {
                                         itemsArrayList.clear(); // Clear existing items
                                         itemsArrayList.addAll(searchArtist.getData().getItems());
-                                        requireActivity().runOnUiThread(() -> {
-                                            totalPages = calculateTotalPages(searchArtist.getData().getTotal());
-                                            artistAllMoreAdapter.setFilterList(itemsArrayList);
+                                        totalPages = calculateTotalPages(searchArtist.getData().getTotal());
+                                        artistAllMoreAdapter.setFilterList(itemsArrayList);
 
-                                            if (currentPage < totalPages) {
-                                                artistAllMoreAdapter.addFooterLoading();
-                                            } else {
-                                                isLastPage = true;
-                                            }
-                                        });
+                                        if (currentPage < totalPages) {
+                                            artistAllMoreAdapter.addFooterLoading();
+                                        } else {
+                                            isLastPage = true;
+                                        }
                                     }
-                                } catch (IOException e) {
-                                    Log.e("TAG", "Error reading response: " + e.getMessage(), e);
-                                }
+                                }, e -> Log.e("TAG", "Error reading response: " + e.getMessage(), e));
                             }
                         }
 
@@ -204,29 +196,21 @@ public class ArtistSearchMultiFragment extends Fragment {
                         @Override
                         public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                             LogUtil.d(Constants.TAG, "searchSongMore: " + call.request().url());
-                            if (response.isSuccessful()) {
-                                try {
-                                    Gson gson = new Gson(); // Initialize Gson parser
-                                    String json = response.body().string();
-                                    SearchArtist searchArtist = gson.fromJson(json, SearchArtist.class);
-
-                                    if (searchArtist != null && searchArtist.getData() != null) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                AsyncResponseParser.parse(response.body(), json -> new Gson().fromJson(json, SearchArtist.class), searchArtist -> {
+                                    if (searchArtist != null && searchArtist.getData() != null && isAdded()) {
                                         ArrayList<Artists> newItems = searchArtist.getData().getItems();
-                                        requireActivity().runOnUiThread(() -> {
-                                            itemsArrayList.addAll(newItems); // Add new items to existing list
-                                            artistAllMoreAdapter.notifyDataSetChanged();
+                                        itemsArrayList.addAll(newItems); // Add new items to existing list
+                                        artistAllMoreAdapter.notifyDataSetChanged();
 
-                                            isLoading = false;
-                                            if (currentPage < totalPages) {
-                                                artistAllMoreAdapter.addFooterLoading();
-                                            } else {
-                                                isLastPage = true;
-                                            }
-                                        });
+                                        isLoading = false;
+                                        if (currentPage < totalPages) {
+                                            artistAllMoreAdapter.addFooterLoading();
+                                        } else {
+                                            isLastPage = true;
+                                        }
                                     }
-                                } catch (IOException e) {
-                                    Log.e("TAG", "Error reading response: " + e.getMessage(), e);
-                                }
+                                }, e -> Log.e("TAG", "Error reading response: " + e.getMessage(), e));
                             }
                         }
 

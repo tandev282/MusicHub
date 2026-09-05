@@ -44,6 +44,7 @@ import com.tandev.musichub.api.service.ApiServiceFactory;
 import com.tandev.musichub.bottomsheet.BottomSheetOptionPlaylist;
 import com.tandev.musichub.bottomsheet.BottomSheetSelectQualityVideo;
 import com.tandev.musichub.helper.ui.Helper;
+import com.tandev.musichub.helper.uliti.AsyncResponseParser;
 import com.tandev.musichub.model.hub.HubVideo;
 import com.tandev.musichub.model.video.ItemVideoStreaming;
 import com.tandev.musichub.model.video.Video;
@@ -430,20 +431,22 @@ public class VideoFragment extends Fragment implements BottomSheetSelectQualityV
                         @Override
                         public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
                             if (response.isSuccessful() && response.body() != null) {
-                                try {
-                                    String responseBody = response.body().string();
+                                AsyncResponseParser.parse(response.body(), responseBody -> {
                                     JSONObject jsonObject = new JSONObject(responseBody);
-
                                     if (jsonObject.getInt("err") == 0) {
                                         JSONObject data = jsonObject.getJSONObject("data");
-                                        int totalFollow = data.getInt("totalFollow");
-                                        requireActivity().runOnUiThread(() -> callback.onFollowersFetched(totalFollow));
-                                    } else {
-                                        requireActivity().runOnUiThread(() -> callback.onError("Error: "));
+                                        return data.getInt("totalFollow");
                                     }
-                                } catch (Exception e) {
-                                    requireActivity().runOnUiThread(() -> callback.onError("Error parsing response: " + e.getMessage()));
-                                }
+                                    throw new Exception("Error: ");
+                                }, totalFollow -> {
+                                    if (isAdded()) {
+                                        callback.onFollowersFetched(totalFollow);
+                                    }
+                                }, e -> {
+                                    if (isAdded()) {
+                                        callback.onError("Error parsing response: " + e.getMessage());
+                                    }
+                                });
                             } else {
                                 requireActivity().runOnUiThread(() -> callback.onError("Response unsuccessful: " + response.message()));
                             }

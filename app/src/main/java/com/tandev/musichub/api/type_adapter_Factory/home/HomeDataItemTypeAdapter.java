@@ -8,9 +8,9 @@ import com.tandev.musichub.model.chart.home.home_new.editor_theme_3.HomeDataItem
 import com.tandev.musichub.model.chart.home.home_new.editor_theme_4.HomeDataItemPlaylistEditorTheme4;
 import com.tandev.musichub.model.chart.home.home_new.history.HomeDataItemHistory;
 import com.tandev.musichub.model.chart.home.home_new.item.HomeDataItem;
+import com.tandev.musichub.model.chart.home.home_new.item.UnsupportedHomeDataItem;
 import com.tandev.musichub.model.chart.home.home_new.new_release.HomeDataItemNewRelease;
 import com.tandev.musichub.model.chart.home.home_new.new_release_chart.HomeDataItemNewReleaseChart;
-import com.tandev.musichub.model.chart.home.home_new.radio.HomeDataItemRadio;
 import com.tandev.musichub.model.chart.home.home_new.rt_chart.HomeDataItemRTChart;
 import com.tandev.musichub.model.chart.home.home_new.season_theme.HomeDataItemPlaylistSeasonTheme;
 import com.tandev.musichub.model.chart.home.home_new.song_station.HomeDataItemSongStation;
@@ -29,6 +29,7 @@ public class HomeDataItemTypeAdapter implements JsonDeserializer<HomeDataItem> {
     public HomeDataItem deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
         JsonObject jsonObject = json.getAsJsonObject();
         String sectionType = jsonObject.get("sectionType").getAsString();
+        String sectionId = jsonObject.has("sectionId") ? jsonObject.get("sectionId").getAsString() : "";
 
         switch (sectionType) {
             case "banner":
@@ -54,7 +55,7 @@ public class HomeDataItemTypeAdapter implements JsonDeserializer<HomeDataItem> {
                     case "hAlbum":
                         return context.deserialize(jsonObject, HomeDataItemPlaylistAlbum.class);
                     default:
-                        throw new JsonParseException("Unknown sectionId for playlist: " + jsonObject.get("sectionId").getAsString());
+                        return new UnsupportedHomeDataItem(sectionType, sectionId);
                 }
             case "newReleaseChart":
                 return context.deserialize(jsonObject, HomeDataItemNewReleaseChart.class);
@@ -65,11 +66,12 @@ public class HomeDataItemTypeAdapter implements JsonDeserializer<HomeDataItem> {
             case "adBanner":
                 return context.deserialize(jsonObject, HomeDataItemAdBanner.class);
             case "livestream":
-                return context.deserialize(jsonObject, HomeDataItemRadio.class);
+            case "quickPlay":
+                return new UnsupportedHomeDataItem(sectionType, sectionId);
             case "songStation":
                 return context.deserialize(jsonObject, HomeDataItemSongStation.class);
             default:
-                throw new JsonParseException("Unknown sectionType: " + sectionType);
+                return new UnsupportedHomeDataItem(sectionType, sectionId);
         }
     }
 }

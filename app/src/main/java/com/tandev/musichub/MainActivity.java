@@ -12,8 +12,10 @@ import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -28,6 +30,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -111,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
     private int currentTime = 0;
     private int totalTime = 0;
     private GestureDetector gestureDetector;
+    private int viewPlayerBaseHeight;
 
 
     public BroadcastReceiver createBroadcastReceiver() {
@@ -203,6 +207,7 @@ public class MainActivity extends AppCompatActivity {
         }
         //main
         initViewsMain();
+        applyNavigationBarInsets();
 
         //bottom main
         initViewBottomMain();
@@ -232,12 +237,40 @@ public class MainActivity extends AppCompatActivity {
 
         // view main
         view_player = findViewById(R.id.view_player);
+        viewPlayerBaseHeight = view_player.getLayoutParams().height;
 
         //layout player
         relative_player = findViewById(R.id.relative_player);
 
         //bottom player
         bottomSheetBehavior = BottomSheetBehavior.from(layout_bottom_player_main);
+    }
+
+    private void applyNavigationBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(layout_bottom_player_main, (view, insets) -> {
+            int navigationBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+            int bottomSafeArea = navigationBarHeight + dpToPx(6);
+
+            ViewGroup.MarginLayoutParams bottomPlayerParams = (ViewGroup.MarginLayoutParams) layout_bottom_player_main.getLayoutParams();
+            if (bottomPlayerParams.bottomMargin != bottomSafeArea) {
+                bottomPlayerParams.bottomMargin = bottomSafeArea;
+                layout_bottom_player_main.setLayoutParams(bottomPlayerParams);
+            }
+
+            ViewGroup.LayoutParams spacerParams = view_player.getLayoutParams();
+            int spacerHeight = viewPlayerBaseHeight + bottomSafeArea;
+            if (spacerParams.height != spacerHeight) {
+                spacerParams.height = spacerHeight;
+                view_player.setLayoutParams(spacerParams);
+            }
+
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(layout_bottom_player_main);
+    }
+
+    private int dpToPx(int value) {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
     }
 
     private void showBottomSheetNowPlaying(boolean isExpanded) {
